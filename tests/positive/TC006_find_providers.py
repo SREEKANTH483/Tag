@@ -48,7 +48,7 @@ def test_search_providers_by_primary_care():
     driver.find_element(By.XPATH, f"//option[normalize-space()='{accepting_new_patients}']").click()
 
     # Click Search
-    search_button = driver.find_element(By.XPATH, "//button[normalize-space()='Search Providers']")
+    #search_button = driver.find_element(By.XPATH, "//button[normalize-space()='Search Providers']")
     search_button.click()
     
     # Wait a moment for the search to process
