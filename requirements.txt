@@ -1,0 +1,7 @@
+selenium>=4.23
+pytest>=8.0
+pytest-html>=4.1.1
+pytest-xdist>=3.6
+webdriver-manager>=4.0.2
+html-testRunner>=1.2
+jinja2>=3.0

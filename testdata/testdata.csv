@@ -1,0 +1,6 @@
+scenario_name,base_url,username,password,estimate_cpt,estimate_location,estimate_network,claim_cpt,claim_location,claim_network,claim_amount,claim_date,provider_specialty,provider_network,provider_accepting,invalid_cpt
+Scenario_1,http://ec2-13-203-252-128.ap-south-1.compute.amazonaws.com:32794/login, alexsingh,demo123,99213,Clinic,In-Network,99213,Clinic,In-Network,150,10/02/2025,Primary Care,In-Network Only,Yes,INVALID_CPT
+Scenario_2,http://ec2-13-203-252-128.ap-south-1.compute.amazonaws.com:32794/login, samrivera,demo123,87070,Hospital,Out-of-Network,87070,Hospital,Out-of-Network,1582,04/22/2024,Cardiology,Out-of-Network,No,INVALID_CPT
+Scenario_3,http://ec2-13-203-252-128.ap-south-1.compute.amazonaws.com:32794/login, alexsingh,demo123,70450,Clinic,In-Network,70450,Telehealth,In-Network,4875,05/30/2025,Primary Care,In-Network Only,Yes,INVALID_CPT
+Scenario_4,http://ec2-13-203-252-128.ap-south-1.compute.amazonaws.com:32794/login, samrivera,demo123,99213,Telehealth,Out-of-Network,99213,Clinic,Out-of-Network,500,05/20/2025,Orthopedics,Out-of-Network,Yes,INVALID_CPT
+Scenario_5,http://ec2-13-203-252-128.ap-south-1.compute.amazonaws.com:32794/login, alexsingh,demo123,87070,Hospital,In-Network,87635,Hospital,In-Network,400,09/12/2024,Dermatology,In-Network Only,No,INVALID_CPT
