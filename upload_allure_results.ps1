@@ -14,7 +14,7 @@ $REPORT_UPLOAD_URL = "https://gnat-teaching-gladly.ngrok-free.app/api/reports/up
 $REPORT_PROJECT    = "Health_care"
 $REPORT_ENV        = "QA"
 
-# Prefer to pull the token from a Jenkins Secret Text mapped to an env var
+# Prefer to hard-code the token (must match ALLURE_UPLOAD_TOKEN in .env)
 $REPORT_API_TOKEN  = "bbbb3b268947d462cf2162dc273d8207cbe45eef7a5aa3912bf677cf473196f3"
 
 if (-not $REPORT_API_TOKEN) {
@@ -35,37 +35,52 @@ if (Test-Path $zipPath) {
 
 Compress-Archive -Path "allure-results\*" -DestinationPath $zipPath -Force
 
-# 2) Upload to Flask/TAG backend using curl.exe (avoids Invoke-WebRequest -Form compatibility issues)
+# 2) Upload to Flask/TAG backend using .NET HttpClient (robust multipart/form-data)
 $buildId = if ($env:BUILD_TAG) { $env:BUILD_TAG } else { "manual-$([guid]::NewGuid().ToString())" }
 
 Write-Host "Uploading Allure results to $REPORT_UPLOAD_URL ..."
 
-$curlArgs = @(
-    "-sS",
-    "-X", "POST", $REPORT_UPLOAD_URL,
-    "-H", "Authorization: Bearer $REPORT_API_TOKEN",
-    "-F", "project=$REPORT_PROJECT",
-    "-F", "environment=$REPORT_ENV",
-    "-F", "build_id=$buildId",
-    "-F", "executed_by=jenkins",
-    "-F", "file=@$zipPath"
-)
-
 try {
-    # Explicitly call curl.exe to avoid PowerShell's curl alias
-    $process = Start-Process -FilePath "curl.exe" -ArgumentList $curlArgs -NoNewWindow -RedirectStandardOutput "curl_output.txt" -RedirectStandardError "curl_error.txt" -PassThru -Wait
+    Add-Type -AssemblyName System.Net.Http | Out-Null
 
-    Write-Host "curl exit code: $($process.ExitCode)"
-    Write-Host "Response:"
-    if (Test-Path "curl_output.txt") {
-        Get-Content "curl_output.txt" | ForEach-Object { Write-Host $_ }
-    }
-    if ($process.ExitCode -ne 0 -and (Test-Path "curl_error.txt")) {
-        Write-Host "curl errors:"
-        Get-Content "curl_error.txt" | ForEach-Object { Write-Host $_ }
-        exit $process.ExitCode
+    $handler = New-Object System.Net.Http.HttpClientHandler
+    $client  = New-Object System.Net.Http.HttpClient($handler)
+    $client.Timeout = [System.TimeSpan]::FromMinutes(5)
+
+    $client.DefaultRequestHeaders.Clear()
+    $client.DefaultRequestHeaders.Add("Authorization", "Bearer $REPORT_API_TOKEN")
+
+    $multipart = New-Object System.Net.Http.MultipartFormDataContent
+
+    $multipart.Add((New-Object System.Net.Http.StringContent($REPORT_PROJECT)), "project")
+    $multipart.Add((New-Object System.Net.Http.StringContent($REPORT_ENV)), "environment")
+    $multipart.Add((New-Object System.Net.Http.StringContent($buildId)), "build_id")
+    $multipart.Add((New-Object System.Net.Http.StringContent("jenkins")), "executed_by")
+
+    $zipFullPath = (Resolve-Path $zipPath).Path
+    $fileStream  = [System.IO.File]::OpenRead($zipFullPath)
+    $fileContent = New-Object System.Net.Http.StreamContent($fileStream)
+    $fileContent.Headers.ContentType = [System.Net.Http.Headers.MediaTypeHeaderValue]::Parse("application/zip")
+    $multipart.Add($fileContent, "file", "allure-results.zip")
+
+    $response   = $client.PostAsync($REPORT_UPLOAD_URL, $multipart).Result
+    $statusCode = [int]$response.StatusCode
+    $body       = $response.Content.ReadAsStringAsync().Result
+
+    Write-Host "Status: $statusCode"
+    Write-Host "Body:"
+    Write-Host $body
+
+    $fileStream.Dispose()
+    $fileContent.Dispose()
+    $multipart.Dispose()
+    $client.Dispose()
+
+    if ($statusCode -ge 400) {
+        Write-Error "Upload failed with HTTP status code $statusCode"
+        exit 1
     }
 } catch {
-    Write-Error "Failed to invoke curl.exe: $_"
+    Write-Error "Failed to upload Allure results: $_"
     exit 1
 }
