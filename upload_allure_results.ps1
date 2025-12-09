@@ -15,7 +15,7 @@ $REPORT_PROJECT    = "Health_care"
 $REPORT_ENV        = "QA"
 
 # Prefer to pull the token from a Jenkins Secret Text mapped to an env var
-$REPORT_API_TOKEN  = "bbbb3b268947d462cf2162dc273d8207cbe45eef7a5aa3912bf677cf473196f3"
+$REPORT_API_TOKEN  = bbbb3b268947d462cf2162dc273d8207cbe45eef7a5aa3912bf677cf473196f3
 
 if (-not $REPORT_API_TOKEN) {
     Write-Error "REPORT_API_TOKEN environment variable is not set."
@@ -35,25 +35,37 @@ if (Test-Path $zipPath) {
 
 Compress-Archive -Path "allure-results\*" -DestinationPath $zipPath -Force
 
-# 2) Upload to Flask/TAG backend
-$headers = @{
-    Authorization = "Bearer $REPORT_API_TOKEN"
-}
-
+# 2) Upload to Flask/TAG backend using curl.exe (avoids Invoke-WebRequest -Form compatibility issues)
 $buildId = if ($env:BUILD_TAG) { $env:BUILD_TAG } else { "manual-$([guid]::NewGuid().ToString())" }
 
-$form = @{
-    project     = $REPORT_PROJECT
-    environment = $REPORT_ENV
-    build_id    = $buildId
-    executed_by = "jenkins"
-    file        = Get-Item $zipPath
-}
-
 Write-Host "Uploading Allure results to $REPORT_UPLOAD_URL ..."
-$response = Invoke-WebRequest -Uri $REPORT_UPLOAD_URL -Method Post -Headers $headers -Form $form -ErrorAction Stop
 
-Write-Host "Status: $($response.StatusCode)"
-Write-Host "Body:"
-Write-Host $response.Content
+$curlArgs = @(
+    "-sS",
+    "-X", "POST", $REPORT_UPLOAD_URL,
+    "-H", "Authorization: Bearer $REPORT_API_TOKEN",
+    "-F", "project=$REPORT_PROJECT",
+    "-F", "environment=$REPORT_ENV",
+    "-F", "build_id=$buildId",
+    "-F", "executed_by=jenkins",
+    "-F", "file=@$zipPath"
+)
 
+try {
+    # Explicitly call curl.exe to avoid PowerShell's curl alias
+    $process = Start-Process -FilePath "curl.exe" -ArgumentList $curlArgs -NoNewWindow -RedirectStandardOutput "curl_output.txt" -RedirectStandardError "curl_error.txt" -PassThru -Wait
+
+    Write-Host "curl exit code: $($process.ExitCode)"
+    Write-Host "Response:"
+    if (Test-Path "curl_output.txt") {
+        Get-Content "curl_output.txt" | ForEach-Object { Write-Host $_ }
+    }
+    if ($process.ExitCode -ne 0 -and (Test-Path "curl_error.txt")) {
+        Write-Host "curl errors:"
+        Get-Content "curl_error.txt" | ForEach-Object { Write-Host $_ }
+        exit $process.ExitCode
+    }
+} catch {
+    Write-Error "Failed to invoke curl.exe: $_"
+    exit 1
+}
