@@ -15,7 +15,7 @@ $REPORT_PROJECT    = "Health_care"
 $REPORT_ENV        = "QA"
 
 # Prefer to pull the token from a Jenkins Secret Text mapped to an env var
-$REPORT_API_TOKEN  = bbbb3b268947d462cf2162dc273d8207cbe45eef7a5aa3912bf677cf473196f3
+$REPORT_API_TOKEN  = "bbbb3b268947d462cf2162dc273d8207cbe45eef7a5aa3912bf677cf473196f3"
 
 if (-not $REPORT_API_TOKEN) {
     Write-Error "REPORT_API_TOKEN environment variable is not set."
